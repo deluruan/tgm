@@ -1,0 +1,31 @@
+#include <stdlib.h>
+#include <sys/utsname.h>
+
+#include <sys/vfs.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/types.h>          /* See NOTES */
+#include <sys/socket.h>
+
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+
+#include "lstruan.h"
+int main(int argc, char *argv[])
+{
+	func01(0,1);
+	printf("IP netmask\n");
+	return 0;
+}

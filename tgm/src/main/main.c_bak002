@@ -1,0 +1,182 @@
+//例程分析：
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define defHhtOpsPort 12345    // 侦听端口
+#define BACKLOG 5     // 最大可连接客户端数量
+#define BUF_SIZE 200
+int fd_A[BACKLOG];    // 连接的FD数组
+int conn_amount;    // 当前连接的数量
+
+void showclient()
+{
+    int i;
+    printf("client amount: %d\n", conn_amount);
+    for (i = 0; i < BACKLOG; i++)
+    {
+        printf("[%d]:%d  ", i, fd_A[i]);
+    }
+    printf("\n\n");
+}
+int main(void)
+{
+    int sock_fd, new_fd;               // 侦听sock_fd, 新连接new_fd
+    struct sockaddr_in server_addr;    // server address information
+    struct sockaddr_in client_addr;    // connector's address information
+    socklen_t sin_size;
+    int yes = 1;
+    char buf[BUF_SIZE];
+    int ret;
+    int i;
+	printf("hhhhh001\n");
+
+    //创建侦听Socket
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        perror("Create listening socket error!");
+        exit(1);
+    }
+    //配置侦听Socket
+    //SO_REUSEADDR BOOL 允许套接口和一个已在使用中的地址捆绑。
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+    {
+        perror("setsockopt error!");
+        exit(1);
+    }
+   
+    server_addr.sin_family = AF_INET;         // host byte order
+    server_addr.sin_port = htons(defHhtOpsPort);     // short, network byte order
+    server_addr.sin_addr.s_addr = INADDR_ANY; // automatically fill with my IP
+    memset(server_addr.sin_zero, '\0', sizeof(server_addr.sin_zero));
+    //绑定新创建的Socket到指定的IP和端口
+    if (bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    {
+        perror("bind error!");
+        exit(1);
+    }
+    //开始侦听，最大连接数为BACKLOG
+    if (listen(sock_fd, BACKLOG) == -1)
+    {
+        perror("listen error!");
+        exit(1);
+    }
+    printf("listen port %d\n", defHhtOpsPort);
+   
+    //监控文件描述符集合
+    fd_set fdsr;
+    //监控文件描述符集合中最大的文件号
+    int maxsock;
+    //Select超时返回的时间。
+    struct timeval tv;
+    conn_amount = 0;
+    sin_size = sizeof(client_addr);
+    maxsock = sock_fd;
+    while (1)
+    {
+        // 初始化文件描述符集合 initialize file descriptor set
+        FD_ZERO(&fdsr);
+        // 把Sock_fd加入到文件描述符集合
+        FD_SET(sock_fd, &fdsr);
+        // 超时设置30秒
+        tv.tv_sec = 30;
+        tv.tv_usec = 0;
+        // 把活动的socket的句柄加入到文件描述符集合中
+        for (i = 0; i < BACKLOG; i++)
+        {
+            if (fd_A[i] != 0)
+            {
+                FD_SET(fd_A[i], &fdsr);
+            }
+        }
+        //Select 函数原型
+        //int select（nfds， readfds， writefds， exceptfds， timeout）
+        //nfds: select监视的文件句柄数,视进程中打开的文件数而定，一般设为呢要监视各文件中的
+        //最大文件号加一
+        //readfds:select监视的可读文件句柄集合
+        //writefds:select监视的可写文件句柄集合。
+        //exceptfds:select监视的异常文件句柄集合。
+        //timeout:本次select的超时结束时间。
+        ret = select(maxsock + 1, &fdsr, NULL, NULL, &tv);
+        if (ret < 0)
+        {
+            perror("select error!");
+            break;
+        }
+        else if (ret == 0)
+        {
+            printf("timeout\n");
+            continue;
+        }
+        // 轮询各个文件描述符（socket）
+        for (i = 0; i < conn_amount; i++)
+        {
+             //FD_ISSET（int fd， fdset *fdset）：检查fdset联系的文件句柄fd是否可读写，
+             // >0表示可读写。
+            if (FD_ISSET(fd_A[i], &fdsr))
+            {
+                //接收数据
+                ret = recv(fd_A[i], buf, sizeof(buf), 0);
+                if (ret <= 0) //接收数据出错
+                {       
+                    printf("client[%d] close\n", i);
+                    close(fd_A[i]);
+                    FD_CLR(fd_A[i], &fdsr);
+                    fd_A[i] = 0;
+                }
+                else  // 数据接收成功
+                {  
+                    //将接收数据的最后一位补0
+                    if (ret < BUF_SIZE)
+                         memset(&buf[ret], '\0', 1);
+                    printf("client[%d] send:%s\n", i, buf);
+					char sndbuf[30];
+					sprintf(sndbuf,"fd[%d];%s",i,buf);
+					send(fd_A[i], sndbuf, strlen(sndbuf), 0);
+                 }
+            }
+        }
+        // 检查是否有新连接进来，如果有新连接进来，接收连接，生成新socket，
+        //并加入到监控文件描述符集合中。
+        if (FD_ISSET(sock_fd, &fdsr))
+        {
+            //接受连接
+            new_fd = accept(sock_fd, (struct sockaddr *)&client_addr, &sin_size);
+            if (new_fd <= 0)
+            {
+                perror("accept socket error!");
+                continue;
+            }
+            // 将新的连接加入到监控文件描述符集合
+            if (conn_amount < BACKLOG)
+            {
+                fd_A[conn_amount++] = new_fd;
+                printf("new connection client[%d] %s:%d\n", conn_amount,inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+                if (new_fd > maxsock)
+                    maxsock = new_fd;
+            }
+            else
+            {
+                printf("max connections arrive, exit\n");
+                send(new_fd, "bye", 4, 0);
+                close(new_fd);
+                break;
+            }
+        }
+        showclient();
+    }
+    // 关闭所有连接
+    for (i = 0; i < BACKLOG; i++)
+    {
+        if (fd_A[i] != 0)
+        {
+            close(fd_A[i]);
+        }
+    }
+    exit(0);
+}

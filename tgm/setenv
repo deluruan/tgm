@@ -1,0 +1,12 @@
+export LD_LIBRARY_PATH=/sdb1/home/tgmlyj/tgm/lib:$LD_LIBRARY_PATH
+
+export LD_LIBRARY_PATH=./
+
+export LD_LIBRARY_PATH=../lib/
+
+echo ${LD_LIBRARY_PATH}
+
+export LD_LIBRARY_PATH=/home/ruan/gm8161/tarlibtest/tmp/libtest/target/resvlibs/
+
+
+

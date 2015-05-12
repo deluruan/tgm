@@ -1,0 +1,44 @@
+C=cc
+CC=c++
+CFLAGS= -g -c -I../include
+VPATH=./cstatic:./cdynamic:./cppstatic:./cppdynamic:./main
+
+OBJ = main.o 
+STATIC_LIBS = libcstatic.a libcppstatic.a
+DYNAMIC_LIBS = libcdynamic.so libcppdynamic.so
+
+all : static dynamic test
+
+static : $(STATIC_LIBS)
+
+dynamic : $(DYNAMIC_LIBS)
+
+test : $(OBJ)
+	$(CC) -o $@ $(OBJ) -L../lib -lcdynamic -lcppdynamic -lcstatic -lcppstatic
+	mv test ../bin
+	rm -f *.o
+
+libcstatic.a : cstatic1.o cstatic2.o cstatic3.o
+	ar -r $@ $^
+	mv -f $@ ../lib
+
+libcppstatic.a : cppstatic1.o cppstatic2.o cppstatic3.o
+	ar -r $@ $^
+	mv -f $@ ../lib
+
+libcdynamic.so : cdynamic1.o cdynamic2.o
+	$(C) -o $@ -shared -fpic $^
+	mv -f $@ ../lib
+
+libcppdynamic.so: cppdynamic1.o cppdynamic2.o
+	$(C) -o $@ -shared -fpic $^
+	mv -f $@ ../lib
+
+%.o : %.c
+	$(C) $(CFLAGS) $<
+
+%.o : %.cpp
+	$(CC) $(CFLAGS) $<
+
+clean:
+	rm -f *.o *.so *.a
