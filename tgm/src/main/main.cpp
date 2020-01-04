@@ -323,6 +323,7 @@ int main( )
      cout<< "较小整数:"<<min(n1,n2)<<endl;
 
      cout<< "较小实数:"<<min(d1,d2)<<endl;
+	 printf("");
 
      system("PAUSE");
      return 0;
